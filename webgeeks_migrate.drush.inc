@@ -1,24 +1,21 @@
 <?php
 
-define('COMPUTERMINDS_OLD_SERVER_IP', '192.168.1.2');
-define('COMPUTERMINDS_OLD_HOSTMASTER_NAME', 'old_hostmaster');
-define('COMPUTERMINDS_PLATFORM_NAME', 'computerminds-platform-1.0');
-define('COMPUTERMINDS_NEW_DB_SERVER', 'server_localhost');
+include_once('webgeeks_migrate.config.inc');
 
 // Even though we don't extend it, we do make use of it's config classes.
-include_once(_computerminds_migrate_get_provision_path() . '/provision.config.inc');
+include_once(_webgeeks_migrate_get_provision_path() . '/provision.config.inc');
 
 /**
  * Adjust this to return the path to provision on your machine.
  */
-function _computerminds_migrate_get_provision_path() {
+function _webgeeks_migrate_get_provision_path() {
   return '/var/aegir/.drush/provision';
 }
 
 /**
  * Implements hook_drush_command().
  */
- function computerminds_migrate_drush_command() {
+ function webgeeks_migrate_drush_command() {
   $items = array();
 
   $items['platform-list-sites'] = array(
@@ -34,16 +31,16 @@ function _computerminds_migrate_get_provision_path() {
     'drupal dependencies' => array('hosting'),
   );
 
-  $items['migrate-computerminds-one'] = array(
-    'description' => 'migrate a single computerminds site from the old server to the new one.',
+  $items['migrate-webgeeks-one'] = array(
+    'description' => 'migrate a single webgeeks site from the old server to the new one.',
     'drupal dependencies' => array('hosting'),
     'arguments' => array(
       'site' => 'The URI of the site to migrate.',
     ),
   );
 
-  $items['migrate-computerminds-all'] = array(
-    'description' => 'migrate a single computerminds site from the old server to the new one.',
+  $items['migrate-webgeeks-all'] = array(
+    'description' => 'migrate a single webgeeks site from the old server to the new one.',
     'drupal dependencies' => array('hosting'),
   );
 
@@ -55,7 +52,7 @@ function _computerminds_migrate_get_provision_path() {
  *
  * Just returns an array of URLs.
  */
-function drush_computerminds_migrate_platform_list_sites($platform) {
+function drush_webgeeks_migrate_platform_list_sites($platform) {
   $sites = array();
 
   $platform_node = hosting_context_load($platform);
@@ -76,18 +73,18 @@ function drush_computerminds_migrate_platform_list_sites($platform) {
 /**
  * Sets up the current hostmaster ready for migration.
  */
-function drush_computerminds_migrate_pre_migrate_setup() {
-  $platform = COMPUTERMINDS_PLATFORM_NAME;
-  $old_hostmaster = '@' . COMPUTERMINDS_OLD_HOSTMASTER_NAME;
+function drush_webgeeks_migrate_pre_migrate_setup() {
+  $platform = WEBGEEKS_PLATFORM_NAME;
+  $old_hostmaster = '@' . WEBGEEKS_OLD_HOSTMASTER_NAME;
   $platform_context = d('@platform_' . $platform);
   $web_server = d($platform_context->web_server);
 
-  $old_sites = computerminds_migrate_get_all_sites($old_hostmaster, $platform);
+  $old_sites = webgeeks_migrate_get_all_sites($old_hostmaster, $platform);
 
   foreach ($old_sites as $site) {
     // Need to ensure that we have a mod_proxy vhost for this site.
     drush_log('Creating a mod proxy vhost for: ' . $site);
-    $vhost = new provisionConfig_computerminds_proxy($web_server, array('uri' => $site));
+    $vhost = new provisionConfig_webgeeks_proxy($web_server, array('uri' => $site));
     $vhost->write();
   }
 
@@ -98,8 +95,8 @@ function drush_computerminds_migrate_pre_migrate_setup() {
 /**
  * Base class for proxied virtual host configuration files.
  */
-class provisionConfig_computerminds_proxy extends provisionConfig {
-  public $template = 'computerminds_proxy_vhost.tpl.php';
+class provisionConfig_webgeeks_proxy extends provisionConfig {
+  public $template = 'webgeeks_proxy_vhost.tpl.php';
   public $description = 'mod proxy virtual host configuration file';
 
 
@@ -111,7 +108,7 @@ class provisionConfig_computerminds_proxy extends provisionConfig {
     parent::process();
 
     $this->data['http_port'] = $this->http_port;
-    $this->data['http_proxy_forward'] = COMPUTERMINDS_OLD_SERVER_IP;
+    $this->data['http_proxy_forward'] = WEBGEEKS_OLD_SERVER_IP;
 
     if ($this->aliases && !is_array($this->aliases)) {
       $this->aliases = explode(",", $this->aliases);
@@ -134,34 +131,34 @@ class provisionConfig_computerminds_proxy extends provisionConfig {
 }
 
 /**
- * Implements drush_hook_pre_migrate_computerminds_one().
+ * Implements drush_hook_pre_migrate_webgeeks_one().
  *
  * We use the pre command hook to remove our temporary vhost.
  */
-function drush_computerminds_migrate_pre_migrate_computerminds_one($site) {
+function drush_webgeeks_migrate_pre_migrate_webgeeks_one($site) {
   // Remove the proxy vhost
-  $platform = COMPUTERMINDS_PLATFORM_NAME;
+  $platform = WEBGEEKS_PLATFORM_NAME;
   $platform_context = d('@platform_' . $platform);
   $web_server = d($platform_context->web_server);
   drush_log('REMOVING mod proxy vhost for: ' . $site);
-  $vhost = new provisionConfig_computerminds_proxy($web_server, array('uri' => $site));
+  $vhost = new provisionConfig_webgeeks_proxy($web_server, array('uri' => $site));
   $vhost->unlink();
   $web_server->service('http')->restart();
 }
 
 /**
- * Implements drush_hook_pre_migrate_computerminds_one_rollback().
+ * Implements drush_hook_pre_migrate_webgeeks_one_rollback().
  *
  * We use the pre rollback command hook to replace our temporary vhost if
  * something when wrong with this migrate.
  */
-function drush_computerminds_migrate_pre_migrate_computerminds_one_rollback($site) {
+function drush_webgeeks_migrate_pre_migrate_webgeeks_one_rollback($site) {
   // Add the proxy vhost.
-  $platform = COMPUTERMINDS_PLATFORM_NAME;
+  $platform = WEBGEEKS_PLATFORM_NAME;
   $platform_context = d('@platform_' . $platform);
   $web_server = d($platform_context->web_server);
   drush_log('Creating a mod proxy vhost for: ' . $site);
-  $vhost = new provisionConfig_computerminds_proxy($web_server, array('uri' => $site));
+  $vhost = new provisionConfig_webgeeks_proxy($web_server, array('uri' => $site));
   $vhost->write();
   $web_server->service('http')->restart();
 }
@@ -169,15 +166,15 @@ function drush_computerminds_migrate_pre_migrate_computerminds_one_rollback($sit
 /**
  * Drush command to migrate a single site from the old server to the new one.
  */
-function drush_computerminds_migrate_migrate_computerminds_one($site) {
+function drush_webgeeks_migrate_migrate_webgeeks_one($site) {
   // Do a backup on the old server.
   drush_log(dt('Backing up old site: @uri', array('@uri' => $site)), 'ok');
   $suggested = d()->platform->server->backup_path . '/' . $site . '-migrate-' . date("Ymd.His", mktime()) . '.tar.gz';
-  drush_backend_invoke_args('@' . ltrim($site, '@') . ' ' . 'provision-backup', array($suggested), array('uri' => $site, 'root' => d(COMPUTERMINDS_PLATFORM_NAME)->root), 'GET', TRUE, NULL, COMPUTERMINDS_OLD_SERVER_IP, 'aegir');
+  drush_backend_invoke_args('@' . ltrim($site, '@') . ' ' . 'provision-backup', array($suggested), array('uri' => $site, 'root' => d(WEBGEEKS_PLATFORM_NAME)->root), 'GET', TRUE, NULL, WEBGEEKS_OLD_SERVER_IP, 'aegir');
 
   // Rsync to this machine.
   drush_log('Copying backup from remote server...', 'ok');
-  if (drush_core_call_rsync(escapeshellarg('aegir@' . COMPUTERMINDS_OLD_SERVER_IP . ':' . $suggested), escapeshellarg($suggested), array(), TRUE, FALSE)) {
+  if (drush_core_call_rsync(escapeshellarg('aegir@' . WEBGEEKS_OLD_SERVER_IP . ':' . $suggested), escapeshellarg($suggested), array(), TRUE, FALSE)) {
   }
   else {
     return drush_set_error('RSYNC_FAILED', 'Failed to copy the backup from the remote server.');
@@ -185,14 +182,14 @@ function drush_computerminds_migrate_migrate_computerminds_one($site) {
 
   // Copy the Aegir context file over.
   $alias_file = '/var/aegir/.drush/' . $site . '.alias.drushrc.php';
-  if (drush_core_call_rsync(escapeshellarg('aegir@' . COMPUTERMINDS_OLD_SERVER_IP . ':' . $alias_file), escapeshellarg($alias_file), array(), TRUE, FALSE)) {
+  if (drush_core_call_rsync(escapeshellarg('aegir@' . WEBGEEKS_OLD_SERVER_IP . ':' . $alias_file), escapeshellarg($alias_file), array(), TRUE, FALSE)) {
     // Now set the new DB server
     $args = array(
       'uri' => "$site",
       "@$site",
-      'db_server' => '@' . COMPUTERMINDS_NEW_DB_SERVER,
-      'root' => d('platform_ ' . COMPUTERMINDS_PLATFORM_NAME)->root,
-      'platform' => '@platform_' . d(COMPUTERMINDS_PLATFORM_NAME)->name,
+      'db_server' => '@' . WEBGEEKS_NEW_DB_SERVER,
+      'root' => d('platform_ ' . WEBGEEKS_PLATFORM_NAME)->root,
+      'platform' => '@platform_' . d(WEBGEEKS_PLATFORM_NAME)->name,
     );
     drush_backend_invoke('provision-save', $args);
   }
@@ -219,7 +216,7 @@ function drush_computerminds_migrate_migrate_computerminds_one($site) {
     if ($ref->nid) {
       if ($task = hosting_get_most_recent_task($ref->nid, 'install')) {
         drush_log(dt('Removed the dummy install task: @nid.', array('@nid' => $task->nid)), 'ok');
-        _computerminds_migrate_node_delete($task->nid);
+        _webgeeks_migrate_node_delete($task->nid);
       }
     }
 
@@ -233,7 +230,7 @@ function drush_computerminds_migrate_migrate_computerminds_one($site) {
  * This is a copy of node_delete() from Drupal 6, but minus the access check on
  * the current user.
  */
-function _computerminds_migrate_node_delete($nid) {
+function _webgeeks_migrate_node_delete($nid) {
 
   // Clear the cache before the load, so if multiple nodes are deleted, the
   // memory will not fill up with nodes (possibly) already removed.
@@ -265,12 +262,12 @@ function _computerminds_migrate_node_delete($nid) {
 /**
  * Drush command to migrate a lot of sites from an old Hostmaster to this one.
  */
-function drush_computerminds_migrate_migrate_computerminds_all() {
+function drush_webgeeks_migrate_migrate_webgeeks_all() {
   // Get the remote sites.
-  $remote_sites = computerminds_migrate_get_all_sites('@' . COMPUTERMINDS_OLD_HOSTMASTER_NAME, COMPUTERMINDS_PLATFORM_NAME);
+  $remote_sites = webgeeks_migrate_get_all_sites('@' . WEBGEEKS_OLD_HOSTMASTER_NAME, WEBGEEKS_PLATFORM_NAME);
 
   // Get the local sites.
-  $local_sites = computerminds_migrate_get_all_sites('@hostmaster', COMPUTERMINDS_PLATFORM_NAME);
+  $local_sites = webgeeks_migrate_get_all_sites('@hostmaster', WEBGEEKS_PLATFORM_NAME);
 
   // Migrate the diff.
   $sites_to_migrate = array_diff($remote_sites, $local_sites);
@@ -299,7 +296,7 @@ function drush_computerminds_migrate_migrate_computerminds_all() {
   $count = 0;
 
   foreach ($sites_to_migrate as $site) {
-    $result = provision_backend_invoke('@hostmaster', 'migrate-computerminds-one', array($site));
+    $result = provision_backend_invoke('@hostmaster', 'migrate-webgeeks-one', array($site));
     $count++;
     drush_log(dt('@count of @total sites migrated...', array('@count' => $count, '@total' => count($sites_to_migrate))), 'ok');
     if (!empty($result['error_status'])) {
@@ -328,7 +325,7 @@ function drush_computerminds_migrate_migrate_computerminds_all() {
 /**
  * Get all sites of a given platform on a given server.
  */
-function computerminds_migrate_get_all_sites($target, $platform) {
+function webgeeks_migrate_get_all_sites($target, $platform) {
   $platform = 'platform_' . $platform;
   // Get a list of all the sites on the remote hostmaster.
   $result = drush_backend_invoke_args('@' . ltrim($target, '@') . ' ' . 'platform-list-sites', array($platform), array('root' => NULL, 'uri' => NULL), 'GET', FALSE);
